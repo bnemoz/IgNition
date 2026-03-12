@@ -1,8 +1,8 @@
-# IgNition
+# IggNition
 
 **Ultra-fast nucleotide-level Aho numbering for antibody variable domains.**
 
-IgNition replaces ANARCI/HMMER with a purpose-built Rust aligner against pre-numbered human germline V/D/J genes. It assigns [Aho scheme](https://doi.org/10.1006/jmbi.2001.4662) positions to every nucleotide in an antibody variable domain sequence, producing a fixed-length coordinate frame suitable for repertoire analysis and AbLLM training.
+IggNition replaces ANARCI/HMMER with a purpose-built Rust aligner against pre-numbered human germline V/D/J genes. It assigns [Aho scheme](https://doi.org/10.1006/jmbi.2001.4662) positions to every nucleotide in an antibody variable domain sequence, producing a fixed-length coordinate frame suitable for repertoire analysis and AbLLM training.
 
 | | ANARCI (Python/HMMER) | **IgNition** |
 |---|---|---|
