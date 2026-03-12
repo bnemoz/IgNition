@@ -1,7 +1,9 @@
+pub mod batch;
 pub mod core;
 pub mod error;
 pub mod io;
 
+pub use batch::{run_batch, run_batch_with_fallback_warning, BatchConfig, BatchInput};
 pub use core::types::{BatchResult, ChainType, NumberingResult, NtPosition};
 pub use error::IgnitionError;
 

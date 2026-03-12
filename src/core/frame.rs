@@ -1,6 +1,7 @@
-use crate::core::translate::{find_frame, translate_all_frames};
-use crate::core::align::align;
+use crate::core::align::{align_with_workspace, AlignWorkspace};
+use crate::core::germline::germline_aa_seq;
 use crate::core::germline::v_germlines;
+use crate::core::translate::{find_frame, translate_all_frames};
 use crate::core::types::ChainType;
 use crate::error::IgnitionError;
 
@@ -56,12 +57,13 @@ pub fn resolve_without_aa(nt: &[u8], hint_chain: Option<ChainType>) -> Result<Fr
             continue;
         }
         // Score against all germlines, take best
+        let mut ws = AlignWorkspace::new();
         let frame_best = chains
             .iter()
             .flat_map(|&chain| v_germlines(chain))
             .map(|g| {
-                let target: Vec<u8> = g.residues.iter().map(|&(_, _, aa)| aa).collect();
-                let aln = align(aa_frame, &target, 11, 1);
+                let target = germline_aa_seq(g);
+                let aln = align_with_workspace(aa_frame, &target, 11, 1, &mut ws);
                 aln.score
             })
             .max()

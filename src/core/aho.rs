@@ -1,7 +1,12 @@
-use crate::core::align::{align, Alignment};
-use crate::core::germline::{v_germlines, j_germlines, GermlineEntry};
+use crate::core::align::{align_with_workspace, score_bigram, score_ungapped, Alignment, AlignWorkspace};
+use crate::core::germline::{germline_aa_seq, j_germlines, v_germlines, GermlineEntry};
 use crate::core::types::{ChainType, NtPosition, NumberingResult};
 use crate::error::IgnitionError;
+
+/// Stage 1 (bigram): shortlist this many candidates for ungapped scoring.
+const BIGRAM_K: usize = 40;
+/// Stage 2 (ungapped BLOSUM62): pass this many candidates to full NW with traceback.
+const UNGAPPED_K: usize = 4;
 
 /// CDR3 Aho position range (inclusive) by chain
 const CDR3_START: u16 = 109;
@@ -33,23 +38,71 @@ pub struct GermlineHit {
 }
 
 /// Find the best-matching V germline for the given AA sequence.
+///
+/// Uses bigram pre-filter to shortlist the top `KMER_PREFILTER_K` candidates
+/// before running full NW. Pass an `AlignWorkspace` to avoid per-call allocation.
 pub fn identify_v_germline(aa: &[u8], chain: ChainType) -> Option<GermlineHit> {
-    v_germlines(chain)
-        .map(|g| {
-            let target: Vec<u8> = g.residues.iter().map(|&(_, _, aa)| aa).collect();
-            let aln = align(aa, &target, 11, 1);
+    let mut ws = AlignWorkspace::new();
+    identify_v_germline_ws(aa, chain, &mut ws)
+}
+
+pub fn identify_v_germline_ws(
+    aa: &[u8],
+    chain: ChainType,
+    ws: &mut AlignWorkspace,
+) -> Option<GermlineHit> {
+    // --- Tier 1: bigram pre-filter (all germlines, O(n) each) ---
+    let all: Vec<&'static GermlineEntry> = v_germlines(chain).collect();
+    if all.is_empty() {
+        return None;
+    }
+    let mut tier1: Vec<(u16, &'static GermlineEntry)> = all
+        .iter()
+        .map(|&g| (score_bigram(aa, &germline_aa_seq(g)), g))
+        .collect();
+
+    let bigram_k = BIGRAM_K.min(tier1.len());
+    tier1.select_nth_unstable_by(bigram_k - 1, |a, b| b.0.cmp(&a.0));
+    let tier1_top = &tier1[..bigram_k];
+
+    // --- Tier 2: ungapped BLOSUM62 score (top bigram_k, O(n) each) ---
+    let mut tier2: Vec<(i32, &'static GermlineEntry)> = tier1_top
+        .iter()
+        .map(|&(_, g)| (score_ungapped(aa, &germline_aa_seq(g)), g))
+        .collect();
+
+    let ungapped_k = UNGAPPED_K.min(tier2.len());
+    tier2.select_nth_unstable_by(ungapped_k - 1, |a, b| b.0.cmp(&a.0));
+    let candidates = &tier2[..ungapped_k];
+
+    // --- Tier 3: full NW with traceback (top ungapped_k only) ---
+    candidates
+        .iter()
+        .map(|&(_, g)| {
+            let target = germline_aa_seq(g);
+            let aln = align_with_workspace(aa, &target, 11, 1, ws);
             let score = aln.score;
             GermlineHit { germline: g, score, alignment: aln }
         })
         .max_by_key(|h| h.score)
 }
 
-/// Find the best-matching J germline for the given AA sequence (or a subsequence).
+/// Find the best-matching J germline for the given AA sequence.
 pub fn identify_j_germline(aa: &[u8], chain: ChainType) -> Option<GermlineHit> {
+    let mut ws = AlignWorkspace::new();
+    identify_j_germline_ws(aa, chain, &mut ws)
+}
+
+pub fn identify_j_germline_ws(
+    aa: &[u8],
+    chain: ChainType,
+    ws: &mut AlignWorkspace,
+) -> Option<GermlineHit> {
+    // J germlines are few (≤14 for heavy) — no pre-filter needed
     j_germlines(chain)
         .map(|g| {
-            let target: Vec<u8> = g.residues.iter().map(|&(_, _, aa)| aa).collect();
-            let aln = align(aa, &target, 11, 1);
+            let target = germline_aa_seq(g);
+            let aln = align_with_workspace(aa, &target, 11, 1, ws);
             let score = aln.score;
             GermlineHit { germline: g, score, alignment: aln }
         })
@@ -156,6 +209,18 @@ pub fn number_sequence(
     aa_seq: &[u8],
     chain: ChainType,
 ) -> Result<NumberingResult, IgnitionError> {
+    let mut ws = AlignWorkspace::new();
+    number_sequence_ws(sequence_id, nt_seq, aa_seq, chain, &mut ws)
+}
+
+/// Like `number_sequence` but accepts a reusable workspace (avoids per-call allocation).
+pub fn number_sequence_ws(
+    sequence_id: u32,
+    nt_seq: &[u8],
+    aa_seq: &[u8],
+    chain: ChainType,
+    ws: &mut AlignWorkspace,
+) -> Result<NumberingResult, IgnitionError> {
     if aa_seq.is_empty() {
         return Err(IgnitionError::InvalidSequence("empty AA sequence".into()));
     }
@@ -167,7 +232,7 @@ pub fn number_sequence(
     }
 
     // --- Step 1: Identify best V germline ---
-    let v_hit = identify_v_germline(aa_seq, chain)
+    let v_hit = identify_v_germline_ws(aa_seq, chain, ws)
         .ok_or(IgnitionError::GermlineNotFound)?;
 
     // --- Step 2: Transfer V positions (Aho 1–108) ---
@@ -177,11 +242,10 @@ pub fn number_sequence(
     let v_last_q_idx = v_pos.last().map(|&(_, qi)| qi + 1).unwrap_or(0);
 
     // --- Step 3: Identify CDR3 + J region ---
-    // Everything after the last V-matched residue is CDR3 + FR4
     let post_v_aa = &aa_seq[v_last_q_idx..];
 
     // Find J germline in the tail
-    let j_hit = identify_j_germline(post_v_aa, chain);
+    let j_hit = identify_j_germline_ws(post_v_aa, chain, ws);
 
     // Assign CDR3 Aho positions (109..=cdr3_end) sequentially
     let cdr3_end_pos = cdr3_end(chain);
