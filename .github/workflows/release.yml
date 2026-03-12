@@ -46,18 +46,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python (non-Linux)
+        if: runner.os != 'Linux'
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Build wheels (Linux)
+        # maturin runs inside a manylinux Docker container — Python is already
+        # present there; pass -i so maturin finds it even on cross-compiled arches.
         if: runner.os == 'Linux'
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
           manylinux: ${{ matrix.manylinux }}
-          args: --release --out dist --features "pyo3/extension-module,python,io_parquet"
+          args: >-
+            --release --out dist
+            --features "pyo3/extension-module,python,io_parquet"
+            -i python3.9 python3.10 python3.11 python3.12
           sccache: true
 
       - name: Build wheels (non-Linux)

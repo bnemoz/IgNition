@@ -1,7 +1,11 @@
 use std::path::Path;
 
+// These imports are only used by the stub functions below (non-io_parquet build).
+#[cfg(not(feature = "io_parquet"))]
 use crate::batch::BatchInput;
+#[cfg(not(feature = "io_parquet"))]
 use crate::core::types::NumberingResult;
+#[cfg(not(feature = "io_parquet"))]
 use crate::error::{IgnitionError, NumberingError};
 
 /// Configuration for reading Parquet files.
@@ -68,22 +72,23 @@ mod inner {
         let nt_col = df
             .column(&config.nt_col)
             .map_err(|_| IgnitionError::Io(format!("Column '{}' not found", config.nt_col)))?;
+        // polars 0.46: Column::as_series() returns Option<&Series>; use .str()
+        // directly on Column instead.
         let nt_strs = nt_col
-            .as_series()
             .str()
-            .map_err(|e| IgnitionError::Io(e.to_string()))?;
+            .map_err(|e: PolarsError| IgnitionError::Io(e.to_string()))?;
 
         let aa_strs_opt: Option<StringChunked> = config
             .aa_col
             .as_ref()
             .and_then(|col| df.column(col).ok())
-            .and_then(|c| c.as_series().str().ok().map(|s| s.clone()));
+            .and_then(|c| c.str().ok().map(|s| s.clone()));
 
         let locus_strs_opt: Option<StringChunked> = config
             .locus_col
             .as_ref()
             .and_then(|col| df.column(col).ok())
-            .and_then(|c| c.as_series().str().ok().map(|s| s.clone()));
+            .and_then(|c| c.str().ok().map(|s| s.clone()));
 
         let n = df.height();
         let mut inputs = Vec::with_capacity(n);
