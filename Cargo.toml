@@ -6,6 +6,7 @@ authors = ["Benjamin Nemoz <github.com/bnemoz>"]
 description = "Ultra-fast antibody variable domain Aho numbering in Rust"
 license = "MIT"
 repository = "https://github.com/bnemoz/ignition"
+rust-version = "1.75"
 
 [lib]
 name = "iggnition"
@@ -23,6 +24,7 @@ io_parquet = ["polars"]
 [dependencies]
 pyo3     = { version = "0.25", features = ["extension-module"], optional = true }
 rayon    = "1.10"
+rayon-core = ">=1.12, <1.13"  # pin: 1.13 bumped MSRV to 1.80
 clap     = { version = "4", features = ["derive"] }
 thiserror = "2"
 serde    = { version = "1", features = ["derive"] }
