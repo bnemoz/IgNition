@@ -18,13 +18,16 @@ path = "src/cli.rs"
 [features]
 default = []
 python = ["pyo3"]
+io_parquet = ["polars"]
 
 [dependencies]
-pyo3 = { version = "0.25", features = ["extension-module"], optional = true }
-rayon = "1.10"
-clap = { version = "4", features = ["derive"] }
+pyo3     = { version = "0.25", features = ["extension-module"], optional = true }
+rayon    = "1.10"
+clap     = { version = "4", features = ["derive"] }
 thiserror = "2"
-serde = { version = "1", features = ["derive"] }
+serde    = { version = "1", features = ["derive"] }
+csv      = "1"
+polars   = { version = "0.46", features = ["lazy", "parquet", "dtype-full"], default-features = false, optional = true }
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
