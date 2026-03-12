@@ -154,7 +154,10 @@ fn run_command(args: RunArgs) -> Result<(), IgnitionError> {
     };
 
     // ── Run batch ──────────────────────────────────────────────────────────────
-    let config = BatchConfig { num_threads: args.threads, ..Default::default() };
+    let config = BatchConfig {
+        num_threads: args.threads,
+        ..Default::default()
+    };
 
     let result = if args.no_aa {
         run_batch_with_fallback_warning(&inputs, &config, Some(&progress_fn))
@@ -217,7 +220,9 @@ fn read_inputs(
 
     match fmt {
         InputFormat::Fasta => {
-            let config = FastaReaderConfig { paired_nt_aa: args.paired };
+            let config = FastaReaderConfig {
+                paired_nt_aa: args.paired,
+            };
             read_fasta_file(&args.input, &config)
         }
 
@@ -235,7 +240,11 @@ fn read_inputs(
             } else {
                 let config = TsvReaderConfig {
                     nt_col: args.nt_col.clone(),
-                    aa_col: if args.no_aa { None } else { Some(args.aa_col.clone()) },
+                    aa_col: if args.no_aa {
+                        None
+                    } else {
+                        Some(args.aa_col.clone())
+                    },
                     locus_col: Some(args.locus_col.clone()),
                     delimiter,
                 };
@@ -249,7 +258,11 @@ fn read_inputs(
                 use crate::io::parquet::{read_parquet_file, ParquetConfig};
                 let config = ParquetConfig {
                     nt_col: args.nt_col.clone(),
-                    aa_col: if args.no_aa { None } else { Some(args.aa_col.clone()) },
+                    aa_col: if args.no_aa {
+                        None
+                    } else {
+                        Some(args.aa_col.clone())
+                    },
                     locus_col: Some(args.locus_col.clone()),
                 };
                 read_parquet_file(&args.input, &config)

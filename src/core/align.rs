@@ -110,14 +110,22 @@ pub fn align_with_workspace(
             // X: gap in target (query advances from row above)
             let open_x = ws.m_mat[idx(i - 1, j)].saturating_add(-gap_open);
             let ext_x = ws.x_mat[idx(i - 1, j)].saturating_add(-gap_ext);
-            let (x_score, x_from) = if open_x >= ext_x { (open_x, 0u8) } else { (ext_x, 1u8) };
+            let (x_score, x_from) = if open_x >= ext_x {
+                (open_x, 0u8)
+            } else {
+                (ext_x, 1u8)
+            };
             ws.x_mat[idx(i, j)] = x_score;
             ws.trace[idx(i, j) * 3 + 1] = x_from;
 
             // Y: gap in query (target advances from column left)
             let open_y = ws.m_mat[idx(i, j - 1)].saturating_add(-gap_open);
             let ext_y = ws.y_mat[idx(i, j - 1)].saturating_add(-gap_ext);
-            let (y_score, y_from) = if open_y >= ext_y { (open_y, 0u8) } else { (ext_y, 2u8) };
+            let (y_score, y_from) = if open_y >= ext_y {
+                (open_y, 0u8)
+            } else {
+                (ext_y, 2u8)
+            };
             ws.y_mat[idx(i, j)] = y_score;
             ws.trace[idx(i, j) * 3 + 2] = y_from;
         }
@@ -139,7 +147,9 @@ pub fn align_with_workspace(
     while i > 0 || j > 0 {
         match state {
             0 => {
-                if i == 0 || j == 0 { break; }
+                if i == 0 || j == 0 {
+                    break;
+                }
                 qa.push(query[i - 1]);
                 ta.push(target[j - 1]);
                 state = ws.trace[idx(i, j) * 3];
@@ -147,14 +157,18 @@ pub fn align_with_workspace(
                 j -= 1;
             }
             1 => {
-                if i == 0 { break; }
+                if i == 0 {
+                    break;
+                }
                 qa.push(query[i - 1]);
                 ta.push(b'-');
                 state = ws.trace[idx(i, j) * 3 + 1];
                 i -= 1;
             }
             2 => {
-                if j == 0 { break; }
+                if j == 0 {
+                    break;
+                }
                 qa.push(b'-');
                 ta.push(target[j - 1]);
                 state = ws.trace[idx(i, j) * 3 + 2];
@@ -163,13 +177,25 @@ pub fn align_with_workspace(
             _ => break,
         }
     }
-    while i > 0 { qa.push(query[i - 1]); ta.push(b'-'); i -= 1; }
-    while j > 0 { qa.push(b'-'); ta.push(target[j - 1]); j -= 1; }
+    while i > 0 {
+        qa.push(query[i - 1]);
+        ta.push(b'-');
+        i -= 1;
+    }
+    while j > 0 {
+        qa.push(b'-');
+        ta.push(target[j - 1]);
+        j -= 1;
+    }
 
     qa.reverse();
     ta.reverse();
 
-    Alignment { score: best_score, query_aligned: qa, target_aligned: ta }
+    Alignment {
+        score: best_score,
+        query_aligned: qa,
+        target_aligned: ta,
+    }
 }
 
 /// Convenience wrapper (allocates its own workspace — fine for single-sequence use).
@@ -189,7 +215,9 @@ pub fn score_bigram(query: &[u8], target: &[u8]) -> u16 {
 
     let aa_idx = |b: u8| -> usize {
         const AA: &[u8] = b"ACDEFGHIKLMNPQRSTVWY";
-        AA.iter().position(|&c| c == b.to_ascii_uppercase()).unwrap_or(0)
+        AA.iter()
+            .position(|&c| c == b.to_ascii_uppercase())
+            .unwrap_or(0)
     };
 
     for w in target.windows(2) {
@@ -210,9 +238,13 @@ pub fn score_bigram(query: &[u8], target: &[u8]) -> u16 {
 
 #[inline]
 fn max3(a: i32, b: i32, c: i32) -> (i32, u8) {
-    if a >= b && a >= c { (a, 0) }
-    else if b >= c       { (b, 1) }
-    else                 { (c, 2) }
+    if a >= b && a >= c {
+        (a, 0)
+    } else if b >= c {
+        (b, 1)
+    } else {
+        (c, 2)
+    }
 }
 
 /// BLOSUM62 20×20 matrix (row-major, order: ARNDCQEGHILKMFPSTWYV)
@@ -257,7 +289,8 @@ fn blosum62_table() -> &'static [i8; 65536] {
                 // Also map lowercase
                 table[a.to_ascii_lowercase() as usize * 256 + b as usize] = score;
                 table[a as usize * 256 + b.to_ascii_lowercase() as usize] = score;
-                table[a.to_ascii_lowercase() as usize * 256 + b.to_ascii_lowercase() as usize] = score;
+                table[a.to_ascii_lowercase() as usize * 256 + b.to_ascii_lowercase() as usize] =
+                    score;
             }
         }
         table
@@ -283,7 +316,9 @@ pub fn blosum62(a: u8, b: u8) -> i32 {
 pub fn score_ungapped(query: &[u8], target: &[u8]) -> i32 {
     let table = blosum62_table();
     let n = query.len().min(target.len());
-    (0..n).map(|i| table[query[i] as usize * 256 + target[i] as usize] as i32).sum()
+    (0..n)
+        .map(|i| table[query[i] as usize * 256 + target[i] as usize] as i32)
+        .sum()
 }
 
 #[cfg(test)]
@@ -294,7 +329,12 @@ mod tests {
     fn test_blosum62_identity() {
         for &aa in b"ARNDCQEGHILKMFPSTWYV" {
             let s = blosum62(aa, aa);
-            assert!(s > 0, "Self-score for {} should be positive, got {}", aa as char, s);
+            assert!(
+                s > 0,
+                "Self-score for {} should be positive, got {}",
+                aa as char,
+                s
+            );
         }
     }
 
@@ -309,7 +349,7 @@ mod tests {
 
     #[test]
     fn test_align_single_deletion() {
-        let query  = b"ACGT";
+        let query = b"ACGT";
         let target = b"ACXGT";
         let aln = align(query, target, 11, 1);
         assert_eq!(aln.query_aligned.len(), aln.target_aligned.len());
@@ -339,7 +379,11 @@ mod tests {
     fn test_score_bigram_identical() {
         let q = b"QVQLVQSGA";
         let score = score_bigram(q, q);
-        assert_eq!(score as usize, q.len() - 1, "Identical sequences: all bigrams should match");
+        assert_eq!(
+            score as usize,
+            q.len() - 1,
+            "Identical sequences: all bigrams should match"
+        );
     }
 
     #[test]

@@ -87,12 +87,7 @@ pub fn read_tsv_reader<R: Read>(
     for (row_idx, result) in rdr.records().enumerate() {
         let record = result.map_err(|e| IgnitionError::Io(e.to_string()))?;
 
-        let nt_seq = record
-            .get(nt_idx)
-            .unwrap_or("")
-            .trim()
-            .as_bytes()
-            .to_vec();
+        let nt_seq = record.get(nt_idx).unwrap_or("").trim().as_bytes().to_vec();
 
         let aa_seq = aa_idx
             .and_then(|i| record.get(i))
@@ -126,7 +121,12 @@ pub fn read_tsv_paired_file(
     let file = std::fs::File::open(path)
         .map_err(|e| IgnitionError::Io(format!("{}: {}", path.display(), e)))?;
     read_tsv_paired_reader(
-        file, nt_col_heavy, aa_col_heavy, nt_col_light, aa_col_light, delimiter,
+        file,
+        nt_col_heavy,
+        aa_col_heavy,
+        nt_col_light,
+        aa_col_light,
+        delimiter,
     )
 }
 
@@ -161,7 +161,12 @@ pub fn read_tsv_paired_reader<R: Read>(
         let record = result.map_err(|e| IgnitionError::Io(e.to_string()))?;
 
         // Heavy entry
-        let heavy_nt = record.get(nt_h_idx).unwrap_or("").trim().as_bytes().to_vec();
+        let heavy_nt = record
+            .get(nt_h_idx)
+            .unwrap_or("")
+            .trim()
+            .as_bytes()
+            .to_vec();
         if !heavy_nt.is_empty() {
             let heavy_aa = aa_h_idx
                 .and_then(|i| record.get(i))
@@ -247,7 +252,10 @@ mod tests {
     #[test]
     fn test_tsv_reader_without_aa_col() {
         let tsv = make_tsv(false);
-        let config = TsvReaderConfig { aa_col: None, ..TsvReaderConfig::default() };
+        let config = TsvReaderConfig {
+            aa_col: None,
+            ..TsvReaderConfig::default()
+        };
         let inputs = read_tsv_reader(tsv.as_bytes(), &config).unwrap();
         assert_eq!(inputs.len(), 2);
         assert!(inputs[0].aa_seq.is_none());
@@ -263,7 +271,10 @@ mod tests {
     #[test]
     fn test_tsv_reader_chain_detection() {
         let tsv = "sequence\tlocus\nATG\tIGH\nATG\tIGK\nATG\tIGL\nATG\tunknown\n";
-        let config = TsvReaderConfig { aa_col: None, ..TsvReaderConfig::default() };
+        let config = TsvReaderConfig {
+            aa_col: None,
+            ..TsvReaderConfig::default()
+        };
         let inputs = read_tsv_reader(tsv.as_bytes(), &config).unwrap();
         assert_eq!(inputs[0].chain, Some(ChainType::Heavy));
         assert_eq!(inputs[1].chain, Some(ChainType::Kappa));
@@ -274,7 +285,10 @@ mod tests {
     #[test]
     fn test_csv_reader() {
         let csv = "sequence,sequence_aa,locus\nATGCATG,M,IGH\n";
-        let config = TsvReaderConfig { delimiter: b',', ..TsvReaderConfig::default() };
+        let config = TsvReaderConfig {
+            delimiter: b',',
+            ..TsvReaderConfig::default()
+        };
         let inputs = read_tsv_reader(csv.as_bytes(), &config).unwrap();
         assert_eq!(inputs.len(), 1);
         assert_eq!(inputs[0].chain, Some(ChainType::Heavy));

@@ -36,12 +36,24 @@ mod tests {
 
     #[test]
     fn test_detect_format() {
-        assert_eq!(detect_format(Path::new("seqs.fasta")), Some(InputFormat::Fasta));
-        assert_eq!(detect_format(Path::new("seqs.fa")), Some(InputFormat::Fasta));
+        assert_eq!(
+            detect_format(Path::new("seqs.fasta")),
+            Some(InputFormat::Fasta)
+        );
+        assert_eq!(
+            detect_format(Path::new("seqs.fa")),
+            Some(InputFormat::Fasta)
+        );
         assert_eq!(detect_format(Path::new("seqs.tsv")), Some(InputFormat::Tsv));
         assert_eq!(detect_format(Path::new("seqs.csv")), Some(InputFormat::Csv));
-        assert_eq!(detect_format(Path::new("seqs.parquet")), Some(InputFormat::Parquet));
-        assert_eq!(detect_format(Path::new("seqs.pq")), Some(InputFormat::Parquet));
+        assert_eq!(
+            detect_format(Path::new("seqs.parquet")),
+            Some(InputFormat::Parquet)
+        );
+        assert_eq!(
+            detect_format(Path::new("seqs.pq")),
+            Some(InputFormat::Parquet)
+        );
         assert_eq!(detect_format(Path::new("seqs.json")), None);
         assert_eq!(detect_format(Path::new("no_extension")), None);
     }

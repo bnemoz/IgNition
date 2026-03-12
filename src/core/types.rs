@@ -47,7 +47,7 @@ pub enum GeneType {
 /// A single Aho-numbered amino acid position
 #[derive(Debug, Clone, Copy)]
 pub struct AhoResidue {
-    pub position: u16, // 1-based Aho position
+    pub position: u16,  // 1-based Aho position
     pub amino_acid: u8, // single-byte AA code (uppercase ASCII)
 }
 

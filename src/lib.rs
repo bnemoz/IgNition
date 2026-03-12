@@ -8,7 +8,7 @@ pub mod io;
 mod python_api;
 
 pub use batch::{run_batch, run_batch_with_fallback_warning, BatchConfig, BatchInput};
-pub use core::types::{BatchResult, ChainType, NumberingResult, NtPosition};
+pub use core::types::{BatchResult, ChainType, NtPosition, NumberingResult};
 pub use error::IgnitionError;
 
 use core::aho::number_sequence;
@@ -74,9 +74,7 @@ pub fn number_chain_auto(
     // Pick the chain type with the best V germline score
     let best_chain = chains
         .iter()
-        .filter_map(|&c| {
-            identify_v_germline(&aa_resolved, c).map(|h| (c, h.score))
-        })
+        .filter_map(|&c| identify_v_germline(&aa_resolved, c).map(|h| (c, h.score)))
         .max_by_key(|&(_, score)| score)
         .map(|(c, _)| c)
         .ok_or(IgnitionError::GermlineNotFound)?;

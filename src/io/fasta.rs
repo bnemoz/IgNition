@@ -60,7 +60,10 @@ fn parse_fasta<R: Read>(reader: R) -> Result<Vec<FastaRecord>, IgnitionError> {
         let line = line.trim_end();
         if let Some(rest) = line.strip_prefix('>') {
             if let Some(header) = current_header.take() {
-                records.push(FastaRecord { header, sequence: std::mem::take(&mut current_seq) });
+                records.push(FastaRecord {
+                    header,
+                    sequence: std::mem::take(&mut current_seq),
+                });
             }
             current_header = Some(rest.to_string());
         } else if !line.is_empty() {
@@ -68,7 +71,10 @@ fn parse_fasta<R: Read>(reader: R) -> Result<Vec<FastaRecord>, IgnitionError> {
         }
     }
     if let Some(header) = current_header {
-        records.push(FastaRecord { header, sequence: current_seq });
+        records.push(FastaRecord {
+            header,
+            sequence: current_seq,
+        });
     }
     Ok(records)
 }
@@ -163,7 +169,12 @@ fn single_records_to_inputs(records: Vec<FastaRecord>) -> Result<Vec<BatchInput>
             let chain = chain_from_header(&rec.header);
             if is_amino_acid(&rec.sequence) {
                 // Detected as AA-only (no NT) — unusual but handle gracefully
-                Ok(BatchInput::new(idx as u32, vec![], Some(rec.sequence), chain))
+                Ok(BatchInput::new(
+                    idx as u32,
+                    vec![],
+                    Some(rec.sequence),
+                    chain,
+                ))
             } else {
                 Ok(BatchInput::new(idx as u32, rec.sequence, None, chain))
             }

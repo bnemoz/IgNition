@@ -54,7 +54,11 @@ fn result_to_py(py: Python, result: BatchResult) -> PyResult<(PyObject, PyObject
 
     let errs = PyDict::new(py);
     let err_seq_ids: Vec<u32> = result.errors.iter().map(|e| e.sequence_id).collect();
-    let err_chains: Vec<String> = result.errors.iter().map(|e| e.chain.as_str().to_string()).collect();
+    let err_chains: Vec<String> = result
+        .errors
+        .iter()
+        .map(|e| e.chain.as_str().to_string())
+        .collect();
     let err_msgs: Vec<String> = result.errors.iter().map(|e| e.message.clone()).collect();
     errs.set_item("sequence_id", err_seq_ids)?;
     errs.set_item("chain", err_chains)?;
@@ -111,11 +115,13 @@ pub fn _run_batch(
         })
         .collect();
 
-    let config = BatchConfig { num_threads, ..Default::default() };
+    let config = BatchConfig {
+        num_threads,
+        ..Default::default()
+    };
 
-    let batch_result = py.allow_threads(|| {
-        run_batch_with_fallback_warning::<fn(usize)>(&inputs, &config, None)
-    });
+    let batch_result =
+        py.allow_threads(|| run_batch_with_fallback_warning::<fn(usize)>(&inputs, &config, None));
 
     result_to_py(py, batch_result)
 }
@@ -145,11 +151,12 @@ pub fn _run_fasta(
     let inputs = read_fasta_file(Path::new(path), &fasta_config)
         .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))?;
 
-    let config = BatchConfig { num_threads, ..Default::default() };
+    let config = BatchConfig {
+        num_threads,
+        ..Default::default()
+    };
 
-    let batch_result = py.allow_threads(|| {
-        run_batch::<fn(usize)>(&inputs, &config, None)
-    });
+    let batch_result = py.allow_threads(|| run_batch::<fn(usize)>(&inputs, &config, None));
 
     result_to_py(py, batch_result)
 }
@@ -164,16 +171,14 @@ pub fn _cli_main(py: Python) -> PyResult<i32> {
     let sys = py.import("sys")?;
     let argv: Vec<String> = sys.getattr("argv")?.extract()?;
 
-    let code = py.allow_threads(|| {
-        match crate::cli_runner::run_cli(argv) {
-            Ok(()) => 0,
-            Err(e) => {
-                let msg = e.to_string();
-                if !msg.contains("clap") && !msg.contains("Usage:") {
-                    eprintln!("iggnition: error: {e}");
-                }
-                1
+    let code = py.allow_threads(|| match crate::cli_runner::run_cli(argv) {
+        Ok(()) => 0,
+        Err(e) => {
+            let msg = e.to_string();
+            if !msg.contains("clap") && !msg.contains("Usage:") {
+                eprintln!("iggnition: error: {e}");
             }
+            1
         }
     });
     Ok(code)

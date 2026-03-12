@@ -25,12 +25,8 @@ fn bench_single_sequence(c: &mut Criterion) {
 
     group.bench_function("number_chain_auto_with_aa", |b| {
         b.iter(|| {
-            number_chain_auto(
-                black_box(0),
-                black_box(HEAVY_NT),
-                black_box(Some(HEAVY_AA)),
-            )
-            .unwrap()
+            number_chain_auto(black_box(0), black_box(HEAVY_NT), black_box(Some(HEAVY_AA)))
+                .unwrap()
         })
     });
 
@@ -50,13 +46,7 @@ fn bench_batch_throughput(c: &mut Criterion) {
             BenchmarkId::new("heavy_with_aa", n),
             &inputs,
             |b, inputs| {
-                b.iter(|| {
-                    run_batch::<fn(usize)>(
-                        black_box(inputs),
-                        &BatchConfig::default(),
-                        None,
-                    )
-                })
+                b.iter(|| run_batch::<fn(usize)>(black_box(inputs), &BatchConfig::default(), None))
             },
         );
     }
@@ -74,13 +64,14 @@ fn bench_batch_thread_scaling(c: &mut Criterion) {
     group.throughput(Throughput::Elements(n as u64));
 
     for &threads in &[1usize, 2, 4, 8] {
-        let config = BatchConfig { num_threads: Some(threads), ..Default::default() };
+        let config = BatchConfig {
+            num_threads: Some(threads),
+            ..Default::default()
+        };
         group.bench_with_input(
             BenchmarkId::new("threads", threads),
             &inputs,
-            |b, inputs| {
-                b.iter(|| run_batch::<fn(usize)>(black_box(inputs), &config, None))
-            },
+            |b, inputs| b.iter(|| run_batch::<fn(usize)>(black_box(inputs), &config, None)),
         );
     }
 

@@ -44,8 +44,7 @@ pub fn write_per_nt_rows<W: Write>(
 
 // ─── Per-codon ────────────────────────────────────────────────────────────────
 
-pub const PER_CODON_HEADER: &str =
-    "sequence_id\tchain\taho_position\tcodon\tamino_acid\n";
+pub const PER_CODON_HEADER: &str = "sequence_id\tchain\taho_position\tcodon\tamino_acid\n";
 
 /// Write per-codon TSV rows for a single result.
 pub fn write_per_codon_rows<W: Write>(
@@ -119,8 +118,7 @@ pub fn write_wide_row<W: Write>(
         if chain == result.chain {
             let max = chain.max_nt_positions() as usize;
             for &nt in &nt_map[1..=max] {
-                write!(w, "\t{}", nt as char)
-                    .map_err(|e| IgnitionError::Io(e.to_string()))?;
+                write!(w, "\t{}", nt as char).map_err(|e| IgnitionError::Io(e.to_string()))?;
             }
         } else {
             // Fill with gaps for chains not present in this result
@@ -199,7 +197,18 @@ mod tests {
     #[test]
     fn test_per_nt_header_columns() {
         let header_cols: Vec<_> = PER_NT_HEADER.trim().split('\t').collect();
-        assert_eq!(header_cols, ["sequence_id", "chain", "nt_position", "aho_position", "codon_position", "nucleotide", "amino_acid"]);
+        assert_eq!(
+            header_cols,
+            [
+                "sequence_id",
+                "chain",
+                "nt_position",
+                "aho_position",
+                "codon_position",
+                "nucleotide",
+                "amino_acid"
+            ]
+        );
     }
 
     #[test]
@@ -233,7 +242,10 @@ mod tests {
         let text = std::str::from_utf8(&buf).unwrap();
         let mut lines = text.lines();
         assert_eq!(lines.next().unwrap(), PER_NT_HEADER.trim());
-        assert_eq!(text.lines().count() - 1, ChainType::Heavy.max_nt_positions() as usize);
+        assert_eq!(
+            text.lines().count() - 1,
+            ChainType::Heavy.max_nt_positions() as usize
+        );
     }
 
     #[test]

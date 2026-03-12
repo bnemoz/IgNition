@@ -32,7 +32,12 @@ impl BatchInput {
         aa_seq: Option<Vec<u8>>,
         chain: Option<ChainType>,
     ) -> Self {
-        Self { sequence_id, nt_seq, aa_seq, chain }
+        Self {
+            sequence_id,
+            nt_seq,
+            aa_seq,
+            chain,
+        }
     }
 
     pub fn heavy(sequence_id: u32, nt_seq: Vec<u8>, aa_seq: Vec<u8>) -> Self {
@@ -72,17 +77,19 @@ fn process_one(input: &BatchInput) -> Result<NumberingResult, NumberingError> {
             None => {
                 use crate::core::aho::identify_v_germline_ws;
                 let chains = [ChainType::Heavy, ChainType::Kappa, ChainType::Lambda];
-                WORKSPACE.with(|ws| {
-                    let mut ws = ws.borrow_mut();
-                    chains
-                        .iter()
-                        .filter_map(|&c| {
-                            identify_v_germline_ws(&frame.aa_seq, c, &mut ws).map(|h| (c, h.score))
-                        })
-                        .max_by_key(|&(_, s)| s)
-                        .map(|(c, _)| c)
-                })
-                .ok_or(IgnitionError::GermlineNotFound)?
+                WORKSPACE
+                    .with(|ws| {
+                        let mut ws = ws.borrow_mut();
+                        chains
+                            .iter()
+                            .filter_map(|&c| {
+                                identify_v_germline_ws(&frame.aa_seq, c, &mut ws)
+                                    .map(|h| (c, h.score))
+                            })
+                            .max_by_key(|&(_, s)| s)
+                            .map(|(c, _)| c)
+                    })
+                    .ok_or(IgnitionError::GermlineNotFound)?
             }
         };
 
@@ -92,11 +99,13 @@ fn process_one(input: &BatchInput) -> Result<NumberingResult, NumberingError> {
         })
     })();
 
-    result.map_err(|e| NumberingError::new(
-        input.sequence_id,
-        input.chain.unwrap_or(ChainType::Heavy),
-        e,
-    ))
+    result.map_err(|e| {
+        NumberingError::new(
+            input.sequence_id,
+            input.chain.unwrap_or(ChainType::Heavy),
+            e,
+        )
+    })
 }
 
 /// Configuration for batch processing.
@@ -229,11 +238,19 @@ mod tests {
         let n = 20;
         let inputs: Vec<_> = (0..n as u32).map(make_heavy_input).collect();
         let result = run_batch::<fn(usize)>(&inputs, &BatchConfig::default(), None);
-        assert_eq!(result.errors.len(), 0, "Errors: {:?}", result.errors.iter().map(|e| &e.message).collect::<Vec<_>>());
+        assert_eq!(
+            result.errors.len(),
+            0,
+            "Errors: {:?}",
+            result.errors.iter().map(|e| &e.message).collect::<Vec<_>>()
+        );
         assert_eq!(result.results.len(), n);
         // Each result has the right number of positions
         for r in &result.results {
-            assert_eq!(r.positions.len(), ChainType::Heavy.max_aho_position() as usize * 3);
+            assert_eq!(
+                r.positions.len(),
+                ChainType::Heavy.max_aho_position() as usize * 3
+            );
         }
     }
 
@@ -249,7 +266,10 @@ mod tests {
 
         let pc = Arc::clone(&progress_calls);
         let tr = Arc::clone(&total_reported);
-        let config = BatchConfig { progress_interval: 1, ..Default::default() };
+        let config = BatchConfig {
+            progress_interval: 1,
+            ..Default::default()
+        };
         let callback = move |done: usize| {
             pc.fetch_add(1, Ordering::Relaxed);
             tr.store(done, Ordering::Relaxed);
@@ -267,7 +287,12 @@ mod tests {
         // Mix valid and intentionally bad sequences
         let mut inputs = vec![make_heavy_input(0)];
         // Bad input: empty NT sequence
-        inputs.push(BatchInput::new(1, vec![], Some(HEAVY_AA.to_vec()), Some(ChainType::Heavy)));
+        inputs.push(BatchInput::new(
+            1,
+            vec![],
+            Some(HEAVY_AA.to_vec()),
+            Some(ChainType::Heavy),
+        ));
         inputs.push(make_heavy_input(2));
 
         let result = run_batch::<fn(usize)>(&inputs, &BatchConfig::default(), None);
@@ -291,7 +316,10 @@ mod tests {
     #[test]
     fn test_batch_custom_thread_count() {
         let inputs: Vec<_> = (0..10u32).map(make_heavy_input).collect();
-        let config = BatchConfig { num_threads: Some(2), ..Default::default() };
+        let config = BatchConfig {
+            num_threads: Some(2),
+            ..Default::default()
+        };
         let result = run_batch::<fn(usize)>(&inputs, &config, None);
         assert_eq!(result.errors.len(), 0);
         assert_eq!(result.results.len(), 10);

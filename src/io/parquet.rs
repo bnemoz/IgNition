@@ -1,12 +1,12 @@
 // These imports are only used by the stub functions below (non-io_parquet build).
 #[cfg(not(feature = "io_parquet"))]
-use std::path::Path;
-#[cfg(not(feature = "io_parquet"))]
 use crate::batch::BatchInput;
 #[cfg(not(feature = "io_parquet"))]
 use crate::core::types::NumberingResult;
 #[cfg(not(feature = "io_parquet"))]
 use crate::error::{IgnitionError, NumberingError};
+#[cfg(not(feature = "io_parquet"))]
+use std::path::Path;
 
 /// Configuration for reading Parquet files.
 #[derive(Debug, Clone)]
@@ -94,12 +94,7 @@ mod inner {
         let mut inputs = Vec::with_capacity(n);
 
         for i in 0..n {
-            let nt_seq = nt_strs
-                .get(i)
-                .unwrap_or("")
-                .trim()
-                .as_bytes()
-                .to_vec();
+            let nt_seq = nt_strs.get(i).unwrap_or("").trim().as_bytes().to_vec();
 
             let aa_seq = aa_strs_opt
                 .as_ref()
@@ -214,10 +209,7 @@ pub fn read_parquet_file(
 
 /// Stub: feature `io_parquet` not enabled.
 #[cfg(not(feature = "io_parquet"))]
-pub fn write_parquet_file(
-    path: &Path,
-    _results: &[NumberingResult],
-) -> Result<(), IgnitionError> {
+pub fn write_parquet_file(path: &Path, _results: &[NumberingResult]) -> Result<(), IgnitionError> {
     Err(IgnitionError::Io(format!(
         "{}: Parquet support not compiled in (enable the `io_parquet` feature)",
         path.display()
@@ -226,10 +218,7 @@ pub fn write_parquet_file(
 
 /// Stub: feature `io_parquet` not enabled.
 #[cfg(not(feature = "io_parquet"))]
-pub fn write_parquet_errors(
-    path: &Path,
-    _errors: &[NumberingError],
-) -> Result<(), IgnitionError> {
+pub fn write_parquet_errors(path: &Path, _errors: &[NumberingError]) -> Result<(), IgnitionError> {
     Err(IgnitionError::Io(format!(
         "{}: Parquet support not compiled in (enable the `io_parquet` feature)",
         path.display()

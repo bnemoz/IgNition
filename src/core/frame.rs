@@ -34,7 +34,10 @@ pub fn resolve_with_aa(nt: &[u8], aa: &[u8]) -> Result<FrameResult, IgnitionErro
 /// and picks the frame with the highest alignment score.
 ///
 /// Emits a warning — caller should surface this to the user.
-pub fn resolve_without_aa(nt: &[u8], hint_chain: Option<ChainType>) -> Result<FrameResult, IgnitionError> {
+pub fn resolve_without_aa(
+    nt: &[u8],
+    hint_chain: Option<ChainType>,
+) -> Result<FrameResult, IgnitionError> {
     let frames = translate_all_frames(nt);
 
     // Choose germlines to test against

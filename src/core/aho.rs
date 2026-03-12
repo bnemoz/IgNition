@@ -1,4 +1,6 @@
-use crate::core::align::{align_with_workspace, score_bigram, score_ungapped, Alignment, AlignWorkspace};
+use crate::core::align::{
+    align_with_workspace, score_bigram, score_ungapped, AlignWorkspace, Alignment,
+};
 use crate::core::germline::{germline_aa_seq, j_germlines, v_germlines, GermlineEntry};
 use crate::core::types::{ChainType, NtPosition, NumberingResult};
 use crate::error::IgnitionError;
@@ -82,7 +84,11 @@ pub fn identify_v_germline_ws(
             let target = germline_aa_seq(g);
             let aln = align_with_workspace(aa, &target, 11, 1, ws);
             let score = aln.score;
-            GermlineHit { germline: g, score, alignment: aln }
+            GermlineHit {
+                germline: g,
+                score,
+                alignment: aln,
+            }
         })
         .max_by_key(|h| h.score)
 }
@@ -104,7 +110,11 @@ pub fn identify_j_germline_ws(
             let target = germline_aa_seq(g);
             let aln = align_with_workspace(aa, &target, 11, 1, ws);
             let score = aln.score;
-            GermlineHit { germline: g, score, alignment: aln }
+            GermlineHit {
+                germline: g,
+                score,
+                alignment: aln,
+            }
         })
         .max_by_key(|h| h.score)
 }
@@ -116,10 +126,7 @@ pub fn identify_j_germline_ws(
 /// (i.e. covers FR1–FR3, up to and including Aho 108).
 ///
 /// Returns a Vec of (aho_position, query_aa_index) pairs for the V region.
-fn transfer_v_positions(
-    aln: &Alignment,
-    germline: &GermlineEntry,
-) -> Vec<(u16, usize)> {
+fn transfer_v_positions(aln: &Alignment, germline: &GermlineEntry) -> Vec<(u16, usize)> {
     // Map germline residue index → aho_position
     let germ_aho: Vec<u16> = germline.residues.iter().map(|&(pos, _, _)| pos).collect();
 
@@ -232,8 +239,7 @@ pub fn number_sequence_ws(
     }
 
     // --- Step 1: Identify best V germline ---
-    let v_hit = identify_v_germline_ws(aa_seq, chain, ws)
-        .ok_or(IgnitionError::GermlineNotFound)?;
+    let v_hit = identify_v_germline_ws(aa_seq, chain, ws).ok_or(IgnitionError::GermlineNotFound)?;
 
     // --- Step 2: Transfer V positions (Aho 1–108) ---
     let v_pos = transfer_v_positions(&v_hit.alignment, v_hit.germline);
@@ -259,11 +265,20 @@ pub fn number_sequence_ws(
         let mut q_idx = 0usize;
         let germ_aho: Vec<u16> = jh.germline.residues.iter().map(|&(p, _, _)| p).collect();
         let mut fr4_q_start = post_v_aa.len(); // default: no FR4
-        for (&qa, &ta) in jh.alignment.query_aligned.iter().zip(jh.alignment.target_aligned.iter()) {
+        for (&qa, &ta) in jh
+            .alignment
+            .query_aligned
+            .iter()
+            .zip(jh.alignment.target_aligned.iter())
+        {
             match (qa, ta) {
                 (b'-', b'-') => {}
-                (b'-', _) => { g_idx += 1; }
-                (_, b'-') => { q_idx += 1; }
+                (b'-', _) => {
+                    g_idx += 1;
+                }
+                (_, b'-') => {
+                    q_idx += 1;
+                }
                 _ => {
                     if g_idx < germ_aho.len() && germ_aho[g_idx] >= fr4_start_pos {
                         fr4_q_start = q_idx;
@@ -397,18 +412,34 @@ mod tests {
         if let Ok(r) = result {
             let positions: Vec<u16> = r.positions.iter().map(|p| p.aho_position).collect();
             // Should have exactly max_aho * 3 positions
-            assert_eq!(positions.len(), ChainType::Heavy.max_aho_position() as usize * 3);
+            assert_eq!(
+                positions.len(),
+                ChainType::Heavy.max_aho_position() as usize * 3
+            );
             // First position
             assert_eq!(positions[0], 1);
             // Each group of 3 consecutive positions (a codon) should share the same aho_position
             for (i, chunk) in positions.chunks(3).enumerate() {
                 assert_eq!(chunk.len(), 3, "chunk {i} not length 3");
-                assert_eq!(chunk[0], chunk[1], "codon {i}: aho_positions should be equal ({} != {})", chunk[0], chunk[1]);
-                assert_eq!(chunk[1], chunk[2], "codon {i}: aho_positions should be equal ({} != {})", chunk[1], chunk[2]);
+                assert_eq!(
+                    chunk[0], chunk[1],
+                    "codon {i}: aho_positions should be equal ({} != {})",
+                    chunk[0], chunk[1]
+                );
+                assert_eq!(
+                    chunk[1], chunk[2],
+                    "codon {i}: aho_positions should be equal ({} != {})",
+                    chunk[1], chunk[2]
+                );
                 // Aho positions should be monotonically increasing
                 if i > 0 {
                     let prev = positions[(i - 1) * 3];
-                    assert!(chunk[0] > prev, "codon {i} aho_position {} should exceed prev {}", chunk[0], prev);
+                    assert!(
+                        chunk[0] > prev,
+                        "codon {i} aho_position {} should exceed prev {}",
+                        chunk[0],
+                        prev
+                    );
                 }
             }
         }
