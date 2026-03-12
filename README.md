@@ -82,14 +82,31 @@ iggnition.run("input.tsv", output="numbered.tsv")
 
 ### Output formats
 
+`iggnition.run(df)` always returns a `(results, errors)` tuple for batch input:
+
+```python
+results, errors = iggnition.run(df)
+
+# results — one row per nucleotide position:
+# shape: (n_sequences × 447, 7) for heavy chains
+# ┌─────────────┬───────┬─────────────┬──────────────┬───────────────┬────────────┬───────────┐
+# │ sequence_id ┆ chain ┆ nt_position ┆ aho_position ┆ codon_position┆ nucleotide ┆ amino_acid│
+# │ u32         ┆ str   ┆ u32         ┆ u32          ┆ u32           ┆ str        ┆ str       │
+
+# errors — sequences that could not be numbered:
+# ┌─────────────┬───────┬──────────────────────────────┐
+# │ sequence_id ┆ chain ┆ error                        │
+# │ u32         ┆ str   ┆ str                          │
+```
+
 ```python
 # Per-codon (one row per Aho position)
-df = iggnition.run(nt_seq=nt, aa_seq=aa, per_codon=True)
-# columns: sequence_id, chain, aho_position, codon, amino_acid
+results, errors = iggnition.run(df, per_codon=True)
+# results columns: sequence_id, chain, aho_position, codon, amino_acid
 
 # Wide format (one row per sequence, positional columns)
-df = iggnition.run(nt_seq=nt, aa_seq=aa, wide=True)
-# columns: sequence_id, H_nt_1, H_nt_2, ..., H_nt_447
+results, errors = iggnition.run(df, wide=True)
+# results columns: sequence_id, H_nt_1, H_nt_2, ..., H_nt_447
 ```
 
 ## CLI
@@ -161,8 +178,7 @@ iggnition run input.fasta output.tsv --wide --threads 8
 ```bash
 git clone https://github.com/bnemoz/ignition
 cd ignition
-pip install maturin
-maturin develop --release
+pip install .
 ```
 
 ## License
