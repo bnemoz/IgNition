@@ -154,7 +154,7 @@ pub fn _run_fasta(
     result_to_py(py, batch_result)
 }
 
-/// Run the `ignition` CLI using Python's `sys.argv`.
+/// Run the `iggnition` CLI using Python's `sys.argv`.
 ///
 /// Returns the process exit code (0 = success, 1 = error).
 /// Does **not** call `std::process::exit` — the caller is responsible.
@@ -170,7 +170,7 @@ pub fn _cli_main(py: Python) -> PyResult<i32> {
             Err(e) => {
                 let msg = e.to_string();
                 if !msg.contains("clap") && !msg.contains("Usage:") {
-                    eprintln!("ignition: error: {e}");
+                    eprintln!("iggnition: error: {e}");
                 }
                 1
             }

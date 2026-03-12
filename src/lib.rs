@@ -37,7 +37,7 @@ pub fn number_chain(
         None => {
             // Fallback mode
             eprintln!(
-                "WARNING [ignition]: no AA sequence supplied for sequence {}; \
+                "WARNING [iggnition]: no AA sequence supplied for sequence {}; \
                  auto-detecting reading frame. This is not the designed use case.",
                 sequence_id
             );
@@ -92,7 +92,7 @@ pub fn number_chain_auto(
 
 // ── PyO3 module entry point ────────────────────────────────────────────────────
 // The function name must match `module-name` in pyproject.toml
-// (ignition._ignition → fn _ignition).
+// (iggnition._ignition → fn _ignition).
 #[cfg(feature = "python")]
 #[pyo3::pymodule]
 fn _ignition(m: &pyo3::Bound<'_, pyo3::types::PyModule>) -> pyo3::PyResult<()> {

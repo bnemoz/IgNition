@@ -1,5 +1,5 @@
 """
-Python API tests for ignition.run().
+Python API tests for iggnition.run().
 
 Run with:
     PYTHONPATH=/path/to/IgNition/python pytest tests/test_python_api.py
@@ -8,7 +8,7 @@ Run with:
 import pytest
 import polars as pl
 
-import ignition
+import iggnition
 
 # ─── Test fixtures ─────────────────────────────────────────────────────────────
 
@@ -27,12 +27,12 @@ HEAVY_AA = (
 
 
 def test_single_sequence_returns_dataframe():
-    result = ignition.run(nt_seq=HEAVY_NT, aa_seq=HEAVY_AA)
+    result = iggnition.run(nt_seq=HEAVY_NT, aa_seq=HEAVY_AA)
     assert isinstance(result, pl.DataFrame)
 
 
 def test_single_sequence_schema():
-    result = ignition.run(nt_seq=HEAVY_NT, aa_seq=HEAVY_AA)
+    result = iggnition.run(nt_seq=HEAVY_NT, aa_seq=HEAVY_AA)
     assert result.columns == [
         "sequence_id", "chain", "nt_position", "aho_position",
         "codon_position", "nucleotide", "amino_acid",
@@ -41,24 +41,24 @@ def test_single_sequence_schema():
 
 def test_single_sequence_row_count():
     # Heavy chain: 149 Aho positions × 3 nucleotides = 447 rows
-    result = ignition.run(nt_seq=HEAVY_NT, aa_seq=HEAVY_AA)
+    result = iggnition.run(nt_seq=HEAVY_NT, aa_seq=HEAVY_AA)
     assert result.shape[0] == 447
 
 
 def test_single_sequence_chain_is_heavy():
-    result = ignition.run(nt_seq=HEAVY_NT, aa_seq=HEAVY_AA)
+    result = iggnition.run(nt_seq=HEAVY_NT, aa_seq=HEAVY_AA)
     chains = result["chain"].unique().to_list()
     assert chains == ["H"]
 
 
 def test_single_sequence_no_aa_warns():
     with pytest.warns(UserWarning, match="auto-detecting"):
-        result = ignition.run(nt_seq=HEAVY_NT)
+        result = iggnition.run(nt_seq=HEAVY_NT)
     assert isinstance(result, pl.DataFrame)
 
 
 def test_single_sequence_per_codon():
-    result = ignition.run(nt_seq=HEAVY_NT, aa_seq=HEAVY_AA, per_codon=True)
+    result = iggnition.run(nt_seq=HEAVY_NT, aa_seq=HEAVY_AA, per_codon=True)
     # Per-codon: 149 Aho positions → 149 rows
     assert result.shape[0] == 149
     assert "codon" in result.columns
@@ -67,7 +67,7 @@ def test_single_sequence_per_codon():
 
 
 def test_single_sequence_codon_lengths():
-    result = ignition.run(nt_seq=HEAVY_NT, aa_seq=HEAVY_AA, per_codon=True)
+    result = iggnition.run(nt_seq=HEAVY_NT, aa_seq=HEAVY_AA, per_codon=True)
     codon_lengths = result["codon"].str.len_chars()
     # Every codon should be exactly 3 characters
     assert (codon_lengths == 3).all()
@@ -85,14 +85,14 @@ def _make_df(n: int = 2) -> pl.DataFrame:
 
 
 def test_dataframe_input_returns_tuple():
-    results, errors = ignition.run(_make_df())
+    results, errors = iggnition.run(_make_df())
     assert isinstance(results, pl.DataFrame)
     assert isinstance(errors, pl.DataFrame)
 
 
 def test_dataframe_input_row_count():
     n = 3
-    results, errors = ignition.run(_make_df(n))
+    results, errors = iggnition.run(_make_df(n))
     # n sequences × 447 positions each
     assert results.shape[0] == n * 447
     assert errors.shape[0] == 0
@@ -100,7 +100,7 @@ def test_dataframe_input_row_count():
 
 def test_dataframe_sequence_ids():
     n = 4
-    results, errors = ignition.run(_make_df(n))
+    results, errors = iggnition.run(_make_df(n))
     ids = sorted(results["sequence_id"].unique().to_list())
     assert ids == list(range(n))
 
@@ -110,13 +110,13 @@ def test_dataframe_custom_nt_col():
         "seq_nt": [HEAVY_NT],
         "seq_aa": [HEAVY_AA],
     })
-    results, errors = ignition.run(df, nt_col="seq_nt", aa_col="seq_aa")
+    results, errors = iggnition.run(df, nt_col="seq_nt", aa_col="seq_aa")
     assert results.shape[0] == 447
     assert errors.shape[0] == 0
 
 
 def test_dataframe_locus_chain_detection():
-    results, errors = ignition.run(_make_df())
+    results, errors = iggnition.run(_make_df())
     assert set(results["chain"].unique().to_list()) == {"H"}
 
 
@@ -126,7 +126,7 @@ def test_dataframe_error_collection():
         "sequence_aa": [HEAVY_AA, HEAVY_AA],
         "locus": ["IGH", "IGH"],
     })
-    results, errors = ignition.run(df)
+    results, errors = iggnition.run(df)
     assert results.shape[0] == 447     # only first sequence
     assert errors.shape[0] == 1
 
@@ -137,7 +137,7 @@ def test_dataframe_errors_schema():
         "sequence_aa": [HEAVY_AA],
         "locus": ["IGH"],
     })
-    _, errors = ignition.run(df)
+    _, errors = iggnition.run(df)
     assert errors.columns == ["sequence_id", "chain", "error"]
 
 
@@ -151,6 +151,6 @@ def test_paired_mode_auto_detection():
         "sequence:1": [HEAVY_NT],   # use heavy seq as a proxy for light
         "sequence_aa:1": [HEAVY_AA],
     })
-    results, errors = ignition.run(df)
+    results, errors = iggnition.run(df)
     # Should process both heavy and the light (which will pick best chain)
     assert results.shape[0] > 0

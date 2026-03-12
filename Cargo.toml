@@ -1,5 +1,5 @@
 [package]
-name = "ignition"
+name = "iggnition"
 version = "0.1.0"
 edition = "2021"
 authors = ["Benjamin Nemoz <github.com/bnemoz>"]
@@ -8,11 +8,11 @@ license = "MIT"
 repository = "https://github.com/bnemoz/ignition"
 
 [lib]
-name = "ignition"
+name = "iggnition"
 crate-type = ["cdylib", "rlib"]
 
 [[bin]]
-name = "ignition"
+name = "iggnition"
 path = "src/cli.rs"
 
 [features]

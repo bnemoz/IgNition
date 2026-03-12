@@ -94,13 +94,17 @@ jobs:
           path: dist/
 
   # ── Publish to PyPI ──────────────────────────────────────────────────────────
+  # Only runs for major releases: tags of the form vX.0 (e.g. v1.0, v2.0).
+  # Minor tags (v1.1, v1.2, …) still build wheels and create a GitHub Release
+  # but are NOT pushed to PyPI.
   publish:
     name: Publish to PyPI
     needs: [build-wheels, build-sdist]
+    if: endsWith(github.ref_name, '.0')
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/project/ignition/
+      url: https://pypi.org/project/iggnition/
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -112,7 +116,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         # Uses OIDC trusted publishing — no API token needed.
         # Configure trusted publisher at:
-        # https://pypi.org/manage/project/ignition/settings/publishing/
+        # https://pypi.org/manage/project/iggnition/settings/publishing/
 
   # ── Create GitHub Release ────────────────────────────────────────────────────
   github-release:

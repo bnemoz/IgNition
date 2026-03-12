@@ -14,7 +14,7 @@ IgNition replaces ANARCI/HMMER with a purpose-built Rust aligner against pre-num
 ## Installation
 
 ```bash
-pip install ignition
+pip install iggnition
 ```
 
 Pre-compiled wheels are available for Linux (x86\_64, aarch64), macOS (Apple Silicon + Intel), and Windows.
@@ -24,9 +24,9 @@ Pre-compiled wheels are available for Linux (x86\_64, aarch64), macOS (Apple Sil
 ### Single sequence
 
 ```python
-import ignition
+import iggnition
 
-df = ignition.run(
+df = iggnition.run(
     nt_seq="CAGGTGCAGCTGGTGCAGTCTGGAGCT...",
     aa_seq="QVQLVQSGAE...",
 )
@@ -42,11 +42,11 @@ print(df)
 
 ```python
 import polars as pl
-import ignition
+import iggnition
 
 df = pl.read_csv("airr_table.tsv", separator="\t")
 
-results, errors = ignition.run(
+results, errors = iggnition.run(
     df,
     nt_col="sequence",
     aa_col="sequence_aa",
@@ -57,7 +57,7 @@ results, errors = ignition.run(
 ### Paired heavy + light (PairPlex-style)
 
 ```python
-results, errors = ignition.run(
+results, errors = iggnition.run(
     df,
     paired=True,
     nt_col_heavy="sequence:0",
@@ -71,24 +71,24 @@ results, errors = ignition.run(
 
 ```python
 # FASTA → DataFrame
-results, errors = ignition.run("input.fasta")
+results, errors = iggnition.run("input.fasta")
 
 # Parquet → Parquet
-ignition.run("input.parquet", output="numbered.parquet")
+iggnition.run("input.parquet", output="numbered.parquet")
 
 # TSV → TSV
-ignition.run("input.tsv", output="numbered.tsv")
+iggnition.run("input.tsv", output="numbered.tsv")
 ```
 
 ### Output formats
 
 ```python
 # Per-codon (one row per Aho position)
-df = ignition.run(nt_seq=nt, aa_seq=aa, per_codon=True)
+df = iggnition.run(nt_seq=nt, aa_seq=aa, per_codon=True)
 # columns: sequence_id, chain, aho_position, codon, amino_acid
 
 # Wide format (one row per sequence, positional columns)
-df = ignition.run(nt_seq=nt, aa_seq=aa, wide=True)
+df = iggnition.run(nt_seq=nt, aa_seq=aa, wide=True)
 # columns: sequence_id, H_nt_1, H_nt_2, ..., H_nt_447
 ```
 
@@ -96,19 +96,19 @@ df = ignition.run(nt_seq=nt, aa_seq=aa, wide=True)
 
 ```bash
 # FASTA → TSV (stdout)
-ignition run input.fasta
+iggnition run input.fasta
 
 # FASTA → TSV (file)
-ignition run input.fasta output.tsv
+iggnition run input.fasta output.tsv
 
 # Parquet → Parquet
-ignition run input.parquet output.parquet
+iggnition run input.parquet output.parquet
 
 # TSV (AIRR) → TSV, per-codon
-ignition run input.tsv output.tsv --per-codon
+iggnition run input.tsv output.tsv --per-codon
 
 # Wide format, 8 threads
-ignition run input.fasta output.tsv --wide --threads 8
+iggnition run input.fasta output.tsv --wide --threads 8
 ```
 
 ### CLI options

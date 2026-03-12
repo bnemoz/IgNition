@@ -196,7 +196,7 @@ where
     let has_fallback = inputs.iter().any(|i| i.aa_seq.is_none());
     if has_fallback {
         eprintln!(
-            "WARNING [ignition]: {} sequence(s) have no AA sequence; \
+            "WARNING [iggnition]: {} sequence(s) have no AA sequence; \
              auto-detecting reading frames. This is not the designed use case.",
             inputs.iter().filter(|i| i.aa_seq.is_none()).count()
         );

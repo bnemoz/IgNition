@@ -1,16 +1,16 @@
-"""ignition — ultra-fast antibody variable domain Aho numbering.
+"""iggnition — ultra-fast antibody variable domain Aho numbering.
 
 Public API: :func:`run`
 
 Example usage::
 
-    import ignition
+    import iggnition
 
     # Single sequence
-    df = ignition.run(nt_seq="CAGGTG...", aa_seq="QV...")
+    df = iggnition.run(nt_seq="CAGGTG...", aa_seq="QV...")
 
     # Polars DataFrame (AIRR format)
-    results_df, errors_df = ignition.run(
+    results_df, errors_df = iggnition.run(
         df,
         nt_col="sequence",
         aa_col="sequence_aa",
@@ -18,7 +18,7 @@ Example usage::
     )
 
     # Paired heavy + light (PairPlex-style)
-    results_df, errors_df = ignition.run(
+    results_df, errors_df = iggnition.run(
         df,
         paired=True,
         nt_col_heavy="sequence:0",
@@ -28,8 +28,8 @@ Example usage::
     )
 
     # File path (FASTA / TSV / Parquet)
-    results_df, errors_df = ignition.run("input.fasta")
-    ignition.run("input.parquet", output="numbered.parquet")
+    results_df, errors_df = iggnition.run("input.fasta")
+    iggnition.run("input.parquet", output="numbered.parquet")
 """
 
 from __future__ import annotations
@@ -40,8 +40,8 @@ from typing import Optional, Union
 
 import polars as pl
 
-from ignition._ignition import _run_batch as _rust_run_batch
-from ignition._ignition import _run_fasta as _rust_run_fasta
+from iggnition._ignition import _run_batch as _rust_run_batch
+from iggnition._ignition import _run_fasta as _rust_run_fasta
 
 try:
     import pandas as _pd

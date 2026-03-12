@@ -1,4 +1,4 @@
-//! CLI logic for the `ignition run` command.
+//! CLI logic for the `iggnition run` command.
 //!
 //! Shared between the standalone Rust binary (`src/cli.rs`) and the PyO3
 //! `_cli_main` entry point (`src/python_api.rs`).
@@ -18,7 +18,7 @@ use crate::io::{detect_format, InputFormat};
 
 #[derive(Parser)]
 #[command(
-    name = "ignition",
+    name = "iggnition",
     version,
     about = "Ultra-fast antibody variable domain Aho numbering",
     long_about = None,
@@ -136,7 +136,7 @@ fn run_command(args: RunArgs) -> Result<(), IgnitionError> {
     let total = inputs.len();
 
     eprintln!(
-        "ignition: {} sequences loaded from {}",
+        "iggnition: {} sequences loaded from {}",
         total,
         args.input.display()
     );
@@ -179,7 +179,7 @@ fn run_command(args: RunArgs) -> Result<(), IgnitionError> {
     }
 
     eprintln!(
-        "ignition: {} OK, {} errors",
+        "iggnition: {} OK, {} errors",
         result.results.len(),
         result.errors.len()
     );
@@ -281,7 +281,7 @@ fn write_output(
                 write_parquet_file(path, &result.results)?;
                 if !result.errors.is_empty() {
                     let err_path = path.with_extension("errors.parquet");
-                    eprintln!("ignition: writing errors to {}", err_path.display());
+                    eprintln!("iggnition: writing errors to {}", err_path.display());
                     write_parquet_errors(&err_path, &result.errors)?;
                 }
                 Ok(())
