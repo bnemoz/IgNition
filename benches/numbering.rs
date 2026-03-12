@@ -25,8 +25,7 @@ fn bench_single_sequence(c: &mut Criterion) {
 
     group.bench_function("number_chain_auto_with_aa", |b| {
         b.iter(|| {
-            number_chain_auto(black_box(0), black_box(HEAVY_NT), black_box(Some(HEAVY_AA)))
-                .unwrap()
+            number_chain_auto(black_box(0), black_box(HEAVY_NT), black_box(Some(HEAVY_AA))).unwrap()
         })
     });
 
