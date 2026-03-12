@@ -41,6 +41,7 @@ from typing import Optional, Union
 import polars as pl
 
 from iggnition._ignition import _run_batch as _rust_run_batch
+from iggnition._ignition import _run_batch_wide as _rust_run_batch_wide
 from iggnition._ignition import _run_fasta as _rust_run_fasta
 
 try:
@@ -137,6 +138,72 @@ def _to_wide(df: pl.DataFrame, per_chain: bool = False) -> pl.DataFrame:
     if "_col" in result.columns:
         result = result.drop("_col")
     return result
+
+
+# ─── Wide fast-path (Rust → compact bytes → Polars, bypasses per-nt pivot) ────
+
+# These constants mirror ChainType::max_nt_positions() on the Rust side.
+_WIDE_H_COLS = 447  # Heavy: 149 Aho positions × 3
+_WIDE_L_COLS = 444  # Kappa/Lambda: 148 Aho positions × 3
+_WIDE_H_NAMES = [f"H{i + 1}" for i in range(_WIDE_H_COLS)]
+_WIDE_L_NAMES = [f"L{i + 1}" for i in range(_WIDE_L_COLS)]
+
+
+def _build_wide_df(res: dict, per_chain: bool = False) -> pl.DataFrame:
+    """Build a wide DataFrame from the compact Rust wide-format dict.
+
+    Nucleotide columns (``H1``…``H447``, ``L1``…``L444``) are stored as
+    ``pl.UInt8`` (ASCII byte values: 65=A, 84=T, 71=G, 67=C, 45=gap).
+    Convert with ``pl.col("H1").map_elements(chr)`` if you need strings.
+
+    Memory: ~2.5 GB for 2.4 M paired antibodies vs ~400+ GB via the pivot path.
+    """
+    import numpy as np
+
+    h_ids: list = res["H_sequence_id"]
+    h_bytes: bytes = res["H_nucleotides"]
+    l_ids: list = res["L_sequence_id"]
+    l_bytes: bytes = res["L_nucleotides"]
+
+    n_h = len(h_ids)
+    n_l = len(l_ids)
+
+    # np.frombuffer is zero-copy; reshape creates a view (no extra allocation).
+    # pl.from_numpy copies once into Arrow column-major storage.
+    if n_h > 0:
+        h_arr = np.frombuffer(h_bytes, dtype=np.uint8).reshape(n_h, _WIDE_H_COLS)
+        df_h = pl.concat(
+            [
+                pl.DataFrame({"sequence_id": pl.Series(h_ids, dtype=pl.UInt32)}),
+                pl.from_numpy(h_arr, schema=_WIDE_H_NAMES),
+            ],
+            how="horizontal",
+        )
+    else:
+        df_h = pl.DataFrame(
+            schema={"sequence_id": pl.UInt32, **{c: pl.UInt8 for c in _WIDE_H_NAMES}}
+        )
+
+    if n_l > 0:
+        l_arr = np.frombuffer(l_bytes, dtype=np.uint8).reshape(n_l, _WIDE_L_COLS)
+        df_l = pl.concat(
+            [
+                pl.DataFrame({"sequence_id": pl.Series(l_ids, dtype=pl.UInt32)}),
+                pl.from_numpy(l_arr, schema=_WIDE_L_NAMES),
+            ],
+            how="horizontal",
+        )
+    else:
+        df_l = pl.DataFrame(
+            schema={"sequence_id": pl.UInt32, **{c: pl.UInt8 for c in _WIDE_L_NAMES}}
+        )
+
+    if per_chain:
+        df_h = df_h.with_columns(pl.lit("H").alias("chain"))
+        df_l = df_l.with_columns(pl.lit("L").alias("chain"))
+        return pl.concat([df_h, df_l], how="diagonal_relaxed")
+    else:
+        return df_h.join(df_l, on="sequence_id", how="outer", coalesce=True)
 
 
 def _apply_format(
@@ -267,6 +334,57 @@ def _run_paired(
     return _rust_run_batch(seq_ids, nts, aas, chains, num_threads, progress_callback)
 
 
+def _run_generic_wide(
+    df: pl.DataFrame,
+    nt_col: str,
+    aa_col: Optional[str],
+    locus_col: Optional[str],
+    chain_override: Optional[str],
+    num_threads: Optional[int],
+    progress_callback=None,
+) -> tuple[dict, dict]:
+    n = len(df)
+    seq_ids = list(range(n))
+    nts = _col_list(df, nt_col)
+    aas = _col_list(df, aa_col)
+    chains: list = [chain_override] * n if chain_override else _col_list(df, locus_col)
+    return _rust_run_batch_wide(seq_ids, nts, aas, chains, num_threads, progress_callback)
+
+
+def _run_paired_wide(
+    df: pl.DataFrame,
+    nt_col_heavy: str,
+    aa_col_heavy: str,
+    nt_col_light: str,
+    aa_col_light: str,
+    num_threads: Optional[int],
+    progress_callback=None,
+) -> tuple[dict, dict]:
+    n = len(df)
+    heavy_nts = _col_list(df, nt_col_heavy)
+    heavy_aas = _col_list(df, aa_col_heavy)
+    light_nts = _col_list(df, nt_col_light)
+    light_aas = _col_list(df, aa_col_light)
+
+    seq_ids, nts, aas, chains = [], [], [], []
+    for i in range(n):
+        if heavy_nts[i]:
+            seq_ids.append(i); nts.append(heavy_nts[i])
+            aas.append(heavy_aas[i]); chains.append("H")
+        if light_nts[i]:
+            seq_ids.append(i); nts.append(light_nts[i])
+            aas.append(light_aas[i]); chains.append(None)
+
+    if not seq_ids:
+        empty = {
+            "H_sequence_id": [], "H_nucleotides": b"",
+            "L_sequence_id": [], "L_nucleotides": b"",
+        }
+        return empty, {"sequence_id": [], "chain": [], "error": []}
+
+    return _rust_run_batch_wide(seq_ids, nts, aas, chains, num_threads, progress_callback)
+
+
 # ─── Output writer ─────────────────────────────────────────────────────────────
 
 def _write_output(df: pl.DataFrame, path: Path) -> None:
@@ -338,6 +456,10 @@ def run(
             per-nucleotide.
         wide: Pivot to wide format — positional columns ``H1``…``H447``,
             ``L1``…``L444`` (Kappa and Lambda both use the ``L`` prefix).
+            Columns are ``pl.UInt8`` (ASCII byte values: 65=A, 84=T, 71=G,
+            67=C, 45=gap).  Use ``pl.col("H1").map_elements(chr)`` to decode
+            to characters.  Implemented via a compact Rust path that is ~50×
+            more memory-efficient than the per-nucleotide pivot.
         per_chain: When ``wide=True``, keep one row per chain instead of merging
             H and L for the same ``sequence_id`` into one row.
         name_col: Column in the input DataFrame to propagate as a ``"name"`` column
@@ -439,27 +561,47 @@ def run(
 
         n_total = 2 * len(df) if use_paired else len(df)
         _pbar, _progress_cb = _make_progress_bar(n_total, verbose)
+
+        # ── Wide fast-path: bypass per-nucleotide intermediate ────────────────
+        # For wide=True (and not per_codon), use the compact Rust wide API
+        # which returns flat byte arrays instead of 2B per-nucleotide rows.
+        use_wide_fast = wide and not per_codon
         try:
-            if use_paired:
-                res_dict, err_dict = _run_paired(
-                    df, nt_col_heavy, aa_col_heavy, nt_col_light, aa_col_light,
-                    num_threads, _progress_cb,
-                )
+            if use_wide_fast:
+                if use_paired:
+                    raw_wide, err_dict = _run_paired_wide(
+                        df, nt_col_heavy, aa_col_heavy, nt_col_light, aa_col_light,
+                        num_threads, _progress_cb,
+                    )
+                else:
+                    raw_wide, err_dict = _run_generic_wide(
+                        df, nt_col, aa_col, locus_col, chain, num_threads, _progress_cb
+                    )
             else:
-                res_dict, err_dict = _run_generic(
-                    df, nt_col, aa_col, locus_col, chain, num_threads, _progress_cb
-                )
+                if use_paired:
+                    res_dict, err_dict = _run_paired(
+                        df, nt_col_heavy, aa_col_heavy, nt_col_light, aa_col_light,
+                        num_threads, _progress_cb,
+                    )
+                else:
+                    res_dict, err_dict = _run_generic(
+                        df, nt_col, aa_col, locus_col, chain, num_threads, _progress_cb
+                    )
         finally:
             if _pbar is not None:
                 _pbar.close()
 
-        results_df = _build_results_df(res_dict)
         errors_df = _build_errors_df(err_dict)
 
-        if name_col and name_col in df.columns:
-            results_df = _attach_name(results_df, df, name_col)
-
-        results_df = _apply_format(results_df, per_codon, wide, per_chain)
+        if use_wide_fast:
+            results_df = _build_wide_df(raw_wide, per_chain)
+            if name_col and name_col in df.columns:
+                results_df = _attach_name(results_df, df, name_col)
+        else:
+            results_df = _build_results_df(res_dict)
+            if name_col and name_col in df.columns:
+                results_df = _attach_name(results_df, df, name_col)
+            results_df = _apply_format(results_df, per_codon, wide=False, per_chain=per_chain)
 
         if output:
             _write_output(results_df, Path(output))
