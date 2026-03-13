@@ -245,8 +245,8 @@ Kappa and Lambda share the `L` prefix in wide format — they map to the same co
 ## Building from Source
 
 ```bash
-git clone https://github.com/bnemoz/ignition
-cd ignition
+git clone https://github.com/bnemoz/iggnition
+cd iggnition
 pip install .
 ```
 
@@ -254,7 +254,7 @@ pip install .
 
 ## License
 
-MIT. If you use IgNition in published research, please cite accordingly.
+MIT. If you use IggNition in published research, please cite accordingly.
 
 ## References
 
