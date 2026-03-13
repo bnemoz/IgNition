@@ -183,6 +183,95 @@ results, errors = iggnition.run(
 
 ---
 
+## Region Annotations
+
+IgNition ships a complete structural annotation layer accessible without running any alignment.  All positions are in the Aho coordinate system.
+
+```python
+import iggnition
+
+# CDR / FR boundaries — Aho AA positions (1-based, inclusive)
+iggnition.CDR_REGIONS["H"]["CDR3"]   # → (109, 137)
+iggnition.CDR_REGIONS["L"]["CDR1"]   # → (26, 38)
+
+# Same boundaries expressed as IgNition nt positions
+iggnition.CDR_REGIONS_NT["H"]["CDR3"]  # → (325, 411)
+iggnition.CDR_REGIONS_NT["L"]["FR4"]   # → (415, 444)
+```
+
+### Helper functions
+
+```python
+# Convert Aho AA position → 3 IgNition nt positions
+iggnition.aho_to_nt(106)       # → (316, 317, 318) — the conserved FR3 Cys
+
+# Convert an Aho range → (first_nt, last_nt)
+iggnition.aho_range_to_nt(26, 38)  # → (76, 114)  — VH CDR1
+
+# Which region does an Aho position fall in?
+iggnition.region_of(43, "H")   # → "FR2"
+iggnition.region_of(120, "H")  # → "CDR3"
+
+# Convert a wide-format column name → (aho_pos, codon_pos)
+iggnition.nt_col_to_aho("H76")   # → (26, 1) — first nt of Aho pos 26 (CDR1 start)
+iggnition.nt_col_to_aho("L444")  # → (148, 3) — last nt of VL
+
+# Build a list of column names for a given CDR/FR (for masking a wide DataFrame)
+iggnition.cdr_mask("H", "CDR3")  # → ['H325', 'H326', ..., 'H411']
+iggnition.cdr_mask("L", "CDR1")  # → ['L76', 'L77', ..., 'L114']
+```
+
+### Structural landmarks
+
+Exact Aho positions for absolutely conserved residues:
+
+```python
+iggnition.LANDMARKS["H"]["Cys_disulfide_N"]["aho"]  # → 23  (IMGT 23 / Kabat ~22)
+iggnition.LANDMARKS["H"]["Cys_disulfide_C"]["aho"]  # → 106 (IMGT 104 / Kabat 92)
+iggnition.LANDMARKS["H"]["Trp_FR2"]["aho"]          # → 43  (IMGT 41 / Kabat 36)
+```
+
+These positions are derived directly from the germline database embedded in the binary — they are guaranteed to be consistent with the numbering IgNition assigns.
+
+### Vernier zone and canonical positions
+
+```python
+# Vernier zone Aho positions (Foote & Winter 1992)
+iggnition.VERNIER_ZONE_AHO["H"]   # → [2, 27, 29, 30, 43, 54, 55, 56, 66, 68, 70, 77, 92, 93]
+iggnition.VERNIER_ZONE_AHO["L"]   # → [2, 25, 26, 27, 29, 33, 49, 51, 52, 73, 77, 78, 80]
+
+# Full detail including Kabat cross-reference and notes
+iggnition.VERNIER_ZONE["H"][71]   # → {"aho": 70, "kabat": 71, "region": "FR3", "note": "..."}
+
+# Chothia canonical structural positions (Al-Lazikani et al. 1997)
+iggnition.CHOTHIA_CANONICAL["H"]["CDR1_H1"]
+iggnition.CHOTHIA_CANONICAL["L"]["CDR2_L2"]
+```
+
+### Numbering scheme cross-reference
+
+```python
+# Verified Aho ↔ IMGT ↔ Kabat correspondences at landmark positions
+iggnition.NUMBERING_CROSSREF["H"]
+# [{"aho": 23, "imgt": 23, "kabat_h": 22, "residue": "Cys (intrachain SS, N-terminal)"}, ...]
+```
+
+### CDR boundaries in Aho — quick reference
+
+| Region | VH Aho | VH nt | VK/VL Aho | VK/VL nt |
+|--------|--------|-------|-----------|----------|
+| FR1 | 1–25 | 1–75 | 1–25 | 1–75 |
+| CDR1 | 26–38 | 76–114 | 26–38 | 76–114 |
+| FR2 | 39–49 | 115–147 | 39–49 | 115–147 |
+| CDR2 | 50–64 | 148–192 | 50–66 | 148–198 |
+| FR3 | 65–108 | 193–324 | 67–108 | 199–324 |
+| CDR3 | 109–137 | 325–411 | 109–138 | 325–414 |
+| FR4 | 138–149 | 412–447 | 139–148 | 415–444 |
+
+VH CDR2 is shorter in the Aho frame (slots 62–64 for insertions) while VK/VL CDR2 has a larger insertion slot (59–66), reflecting the structural reality that H2 loops occupy different insertion positions than L2 loops.
+
+---
+
 ## CLI
 
 ```bash

@@ -44,13 +44,43 @@ from iggnition._ignition import _run_batch as _rust_run_batch
 from iggnition._ignition import _run_batch_wide as _rust_run_batch_wide
 from iggnition._ignition import _run_fasta as _rust_run_fasta
 
+from iggnition.regions import (
+    CDR_REGIONS,
+    CDR_REGIONS_NT,
+    LANDMARKS,
+    VERNIER_ZONE,
+    VERNIER_ZONE_AHO,
+    CHOTHIA_CANONICAL,
+    NUMBERING_CROSSREF,
+    aho_to_nt,
+    aho_range_to_nt,
+    region_of,
+    nt_col_to_aho,
+    cdr_mask,
+)
+
 try:
     import pandas as _pd
     _PANDAS_AVAILABLE = True
 except ImportError:
     _PANDAS_AVAILABLE = False
 
-__all__ = ["run"]
+__all__ = [
+    "run",
+    # Region / annotation API
+    "CDR_REGIONS",
+    "CDR_REGIONS_NT",
+    "LANDMARKS",
+    "VERNIER_ZONE",
+    "VERNIER_ZONE_AHO",
+    "CHOTHIA_CANONICAL",
+    "NUMBERING_CROSSREF",
+    "aho_to_nt",
+    "aho_range_to_nt",
+    "region_of",
+    "nt_col_to_aho",
+    "cdr_mask",
+]
 
 # ─── Schema helpers ────────────────────────────────────────────────────────────
 
