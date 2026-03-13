@@ -67,6 +67,85 @@ fn result_to_py(py: Python, result: BatchResult) -> PyResult<(PyObject, PyObject
     Ok((res.into(), errs.into()))
 }
 
+/// Convert a `BatchResult` into a compact wide-format dict.
+///
+/// Instead of exploding every sequence to N per-nucleotide rows, this packs all
+/// results into two flat byte arrays (one per chain class) in row-major order.
+///
+/// `H_nucleotides` has length `n_heavy × 447` bytes; `L_nucleotides` has length
+/// `n_light × 444` bytes.  Each entry is an ASCII byte (A/T/G/C or b'-').
+///
+/// Returns `(wide_dict, errors_dict)`.
+fn result_to_py_wide(py: Python, result: BatchResult) -> PyResult<(PyObject, PyObject)> {
+    let h_size = ChainType::Heavy.max_nt_positions() as usize; // 447
+    let l_size = ChainType::Kappa.max_nt_positions() as usize; // 444
+
+    let n_h = result
+        .results
+        .iter()
+        .filter(|r| r.chain == ChainType::Heavy)
+        .count();
+    let n_l = result.results.len() - n_h;
+
+    let mut h_seq_ids: Vec<u32> = Vec::with_capacity(n_h);
+    let mut h_nucleotides: Vec<u8> = Vec::with_capacity(n_h * h_size);
+    let mut l_seq_ids: Vec<u32> = Vec::with_capacity(n_l);
+    let mut l_nucleotides: Vec<u8> = Vec::with_capacity(n_l * l_size);
+
+    for r in &result.results {
+        match r.chain {
+            ChainType::Heavy => {
+                h_seq_ids.push(r.sequence_id);
+                let start = h_nucleotides.len();
+                h_nucleotides.resize(start + h_size, b'-');
+                for pos in &r.positions {
+                    let idx = pos.nt_position as usize;
+                    if idx > 0 && idx <= h_size {
+                        h_nucleotides[start + idx - 1] = pos.nucleotide;
+                    }
+                }
+            }
+            ChainType::Kappa | ChainType::Lambda => {
+                l_seq_ids.push(r.sequence_id);
+                let start = l_nucleotides.len();
+                l_nucleotides.resize(start + l_size, b'-');
+                for pos in &r.positions {
+                    let idx = pos.nt_position as usize;
+                    if idx > 0 && idx <= l_size {
+                        l_nucleotides[start + idx - 1] = pos.nucleotide;
+                    }
+                }
+            }
+        }
+    }
+
+    let wide = PyDict::new(py);
+    wide.set_item("H_sequence_id", h_seq_ids)?;
+    wide.set_item(
+        "H_nucleotides",
+        pyo3::types::PyBytes::new(py, &h_nucleotides),
+    )?;
+    wide.set_item("L_sequence_id", l_seq_ids)?;
+    wide.set_item(
+        "L_nucleotides",
+        pyo3::types::PyBytes::new(py, &l_nucleotides),
+    )?;
+
+    let errs = PyDict::new(py);
+    let err_seq_ids: Vec<u32> = result.errors.iter().map(|e| e.sequence_id).collect();
+    let err_chains: Vec<String> = result
+        .errors
+        .iter()
+        .map(|e| e.chain.as_str().to_string())
+        .collect();
+    let err_msgs: Vec<String> = result.errors.iter().map(|e| e.message.clone()).collect();
+    errs.set_item("sequence_id", err_seq_ids)?;
+    errs.set_item("chain", err_chains)?;
+    errs.set_item("error", err_msgs)?;
+
+    Ok((wide.into(), errs.into()))
+}
+
 /// Run Aho numbering on a batch of sequences.
 ///
 /// All four lists must have the same length.
@@ -140,6 +219,74 @@ pub fn _run_batch(
     result_to_py(py, batch_result)
 }
 
+/// Run Aho numbering and return compact wide-format byte arrays.
+///
+/// Same inputs as `_run_batch`.  Returns `(wide_dict, errors_dict)` where
+/// `wide_dict` contains:
+///
+/// * ``H_sequence_id`` – ``list[int]`` of heavy-chain row indices
+/// * ``H_nucleotides`` – ``bytes`` of length ``n_heavy × 447`` (row-major)
+/// * ``L_sequence_id`` – ``list[int]`` of light-chain row indices
+/// * ``L_nucleotides`` – ``bytes`` of length ``n_light × 444`` (row-major)
+///
+/// Nucleotide bytes are ASCII: 65=A, 84=T, 71=G, 67=C, 45=-.
+/// On the Python side reshape with ``numpy.frombuffer(...).reshape(n, 447)``
+/// and pass to ``polars.from_numpy`` for memory-efficient wide DataFrames.
+#[pyfunction]
+#[pyo3(signature = (sequence_ids, nt_seqs, aa_seqs, chains, num_threads=None, progress_callback=None))]
+pub fn _run_batch_wide(
+    py: Python,
+    sequence_ids: Vec<u32>,
+    nt_seqs: Vec<Option<String>>,
+    aa_seqs: Vec<Option<String>>,
+    chains: Vec<Option<String>>,
+    num_threads: Option<usize>,
+    progress_callback: Option<PyObject>,
+) -> PyResult<(PyObject, PyObject)> {
+    let n = sequence_ids.len();
+    if nt_seqs.len() != n || aa_seqs.len() != n || chains.len() != n {
+        return Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "All input lists must have the same length \
+             (sequence_ids={n}, nt_seqs={}, aa_seqs={}, chains={})",
+            nt_seqs.len(),
+            aa_seqs.len(),
+            chains.len(),
+        )));
+    }
+
+    let inputs: Vec<BatchInput> = (0..n)
+        .map(|i| {
+            BatchInput::new(
+                sequence_ids[i],
+                nt_seqs[i].as_deref().unwrap_or("").as_bytes().to_vec(),
+                aa_seqs[i].as_deref().map(|s| s.as_bytes().to_vec()),
+                chains[i].as_deref().and_then(chain_from_str),
+            )
+        })
+        .collect();
+
+    let config = BatchConfig {
+        num_threads,
+        ..Default::default()
+    };
+
+    let batch_result = match progress_callback {
+        Some(cb) => py.allow_threads(move || {
+            let progress_fn = move |done: usize| {
+                Python::with_gil(|py| {
+                    let _ = cb.call1(py, (done,));
+                });
+            };
+            run_batch_with_fallback_warning(&inputs, &config, Some(&progress_fn))
+        }),
+        None => py.allow_threads(move || {
+            run_batch_with_fallback_warning::<fn(usize)>(&inputs, &config, None)
+        }),
+    };
+
+    result_to_py_wide(py, batch_result)
+}
+
 /// Run Aho numbering on sequences from a FASTA file.
 ///
 /// Args:
@@ -201,6 +348,7 @@ pub fn _cli_main(py: Python) -> PyResult<i32> {
 /// Register all Python-visible functions into the module.
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(_run_batch, m)?)?;
+    m.add_function(wrap_pyfunction!(_run_batch_wide, m)?)?;
     m.add_function(wrap_pyfunction!(_run_fasta, m)?)?;
     m.add_function(wrap_pyfunction!(_cli_main, m)?)?;
     Ok(())
