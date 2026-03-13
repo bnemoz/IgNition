@@ -462,9 +462,11 @@ def run(
             more memory-efficient than the per-nucleotide pivot.
         per_chain: When ``wide=True``, keep one row per chain instead of merging
             H and L for the same ``sequence_id`` into one row.
-        name_col: Column in the input DataFrame to propagate as a ``"name"`` column
-            in the results.  Both H and L results for a paired row receive the
-            same name.
+        name_col: Column in the input DataFrame to use as the row identifier.
+            In wide format, becomes the first column ``seq_name`` (replacing the
+            integer ``sequence_id``).  Both H and L results for a paired row
+            receive the same name.  When omitted, ``sequence_id`` is renamed to
+            ``seq_name`` in wide format.
         output: Write results to this file path.  Format inferred from extension.
             When set, the function *still* returns the DataFrames.
         num_threads: Number of Rayon worker threads.  ``None`` → all cores.
@@ -597,6 +599,16 @@ def run(
             results_df = _build_wide_df(raw_wide, per_chain)
             if name_col and name_col in df.columns:
                 results_df = _attach_name(results_df, df, name_col)
+                # Promote name to front as seq_name; drop integer sequence_id
+                other_cols = [
+                    c for c in results_df.columns if c not in ("sequence_id", "name")
+                ]
+                results_df = results_df.select(
+                    pl.col("name").alias("seq_name"),
+                    *[pl.col(c) for c in other_cols],
+                )
+            else:
+                results_df = results_df.rename({"sequence_id": "seq_name"})
         else:
             results_df = _build_results_df(res_dict)
             if name_col and name_col in df.columns:
